@@ -161,7 +161,7 @@ freq<-function(x){
 #simulation
 d<-cbind(d,0,0,0,0,0,0)
 names(d)[15:20]<-c("WMAX","preMAX","todayMAX","WMIN","preMIN","todayMIN")
-for(i in 1:1){
+for(i in 1:length(level)){
 	temp<-which(d[,1]==level[i])
 	d[temp[1],"preMAX"]<-d[temp[1],"TMAXpre"]
 	d[temp[1],"preMIN"]<-d[temp[1],"TMINpre"]
@@ -172,9 +172,8 @@ for(i in 1:1){
 	d[temp,"WMAX"]<-rnorm(length(temp))*sigma.max
 	d[temp,"WMIN"]<-rnorm(length(temp))*sigma.min
 	for(j in 1:(length(temp))){
-		print(j)
 		d[temp[j],"todayMAX"]<-coef.max%*%c(1,d[temp[j],"preMAX"],d[temp[j],"preMIN"],d[temp[j],"season1"],d[temp[j],"season2"],d[temp[j],"DATE"])+d[temp[j],"WMAX"]
-		d[temp[j],"todayMIN"]<-coef.max%*%c(1,d[temp[j],"preMAX"],d[temp[j],"preMIN"],d[temp[j],"season1"],d[temp[j],"season2"],d[temp[j],"DATE"])+d[temp[j],"WMIN"]
+		d[temp[j],"todayMIN"]<-coef.min%*%c(1,d[temp[j],"preMAX"],d[temp[j],"preMIN"],d[temp[j],"season1"],d[temp[j],"season2"],d[temp[j],"DATE"])+d[temp[j],"WMIN"]
 		if(j!=length(temp)){
 			d[temp[j+1],c("preMAX","preMIN")]<-d[temp[j],c("todayMAX","todayMIN")]
 		}
@@ -201,10 +200,11 @@ dim(data.min)<-c(len,length(level[,1]),30)
 for(i in 1:len){
 	temp1<-c()
 	temp2<-c()
+	start<-(len-1)*30
+	end<-len*30-1
 	for(j in 1:length(level[,1])){
-		temp<-level[j,3]+((i-1)*30):(i*30-1)
-		temp1<-cbind(temp1,d[temp,"TMAX"])
-		temp2<-cbind(temp2,d[temp,"TMIN"])
+		temp1<-rbind(temp1,fit.max[[j]][[1]]$res[start:end])
+		temp2<-rbind(temp2,fit.min[[j]][[1]]$res[start:end])
 	}
 	data.max[i,,]<-temp1
 	data.min[i,,]<-temp2
@@ -214,4 +214,57 @@ for(i in 1:len){
 for(i in 1:len){
 	cov.max[i,,]<-var(t(data.max[i,,]))
 	cov.min[i,,]<-var(t(data.min[i,,]))
+}
+
+coef.max<-c()
+coef.min<-c()
+for(i in 1:length(level[,1])){
+	coef.max<-rbind(coef.max,fit.max[[i]][[1]]$coef)
+	coef.min<-rbind(coef.min,fit.min[[i]][[1]]$coef)
+}
+
+#LU factorization
+LU<-function(x){
+	if(length(x)==1){n<-1}
+	else{n<-length(x[,1])}
+	L<-x
+	if(n>1){
+		L[1,1]<-sqrt(L[1,1])
+		L[2:n,1]<-L[2:n,1]/L[1,1]
+		L[2:n,2:n]<-L[2:n,2:n]-L[2:n,1]%o%L[2:n,1]
+		return(cbind(L[,1],rbind(rep(0,n-1),LU(L[2:n,2:n]))))
+	}
+	else{return(L)}
+}
+
+#simulate random variables with covariance matrix
+rnorm.multi<-function(cov){
+	if(length(cov)==1){return(rnorm(1))}
+	else{return(cov%*%rnorm(length(cov[,1])))}
+}
+
+#get correlation matrix
+cova.max<-list()
+cova.min<-list()
+for(i in 1:len){
+	cova.max[[i]]<-LU(cov.max[i,,])
+	cova.min[[i]]<-LU(cov.min[i,,])
+}
+
+#simulation with spatial covariance
+for(i in 1:10){
+	print(i)
+	temp<-level[,3]+i-1
+	if(i==1){
+		d[temp,"preMAX"]<-d[temp,"TMAXpre"]
+		d[temp,"preMIN"]<-d[temp,"TMINpre"]
+	}
+	d[temp,"WMAX"]<-rnorm.multi(cova.max[[i]])
+	d[temp,"WMIN"]<-rnorm.multi(cova.min[[i]])
+	print(d[temp,"WMAX"])
+	d[temp,"todayMAX"]<-diag(coef.max%*%rbind(1,d[temp,"preMAX"],d[temp,"preMIN"],d[temp,"season1"],d[temp,"season2"],d[temp,"DATE"])+d[temp,"WMAX"])
+	d[temp,"todayMIN"]<-diag(coef.min%*%rbind(1,d[temp,"preMAX"],d[temp,"preMIN"],d[temp,"season1"],d[temp,"season2"],d[temp,"DATE"])+d[temp,"WMIN"])
+	if(j!=len*30){
+			d[temp+1,c("preMAX","preMIN")]<-d[temp,c("todayMAX","todayMIN")]
+	}
 }
