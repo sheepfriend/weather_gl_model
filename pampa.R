@@ -234,7 +234,7 @@ LU<-function(x){
 		L[2:n,2:n]<-L[2:n,2:n]-L[2:n,1]%o%L[2:n,1]
 		return(cbind(L[,1],rbind(rep(0,n-1),LU(L[2:n,2:n]))))
 	}
-	else{return(L)}
+	else{return(sqrt(L))}
 }
 
 #simulate random variables with covariance matrix
@@ -251,17 +251,28 @@ for(i in 1:len){
 	cova.min[[i]]<-LU(cov.min[i,,])
 }
 
+#generate random normal variables together
+rnorm.max<-matrix(rnorm(length(level[,1])*30*len),ncol=length(level[,1]),nrow=len*30)
+rnorm.min<-matrix(rnorm(length(level[,1])*30*len),ncol=length(level[,1]),nrow=len*30)
+
+for(i in 1:len){
+	start<-(i-1)*30
+	end<-i*30-1
+	which.matrix<-start:end
+	rnorm.max[which.matrix,]<-rnorm.max[which.matrix,]%*%t(cova.max[[1]])
+	rnorm.min[which.matrix,]<-rnorm.min[which.matrix,]%*%t(cova.min[[1]])
+}
+
 #simulation with spatial covariance
-for(i in 1:10){
+for(i in 1:100){
 	print(i)
 	temp<-level[,3]+i-1
 	if(i==1){
 		d[temp,"preMAX"]<-d[temp,"TMAXpre"]
 		d[temp,"preMIN"]<-d[temp,"TMINpre"]
 	}
-	d[temp,"WMAX"]<-rnorm.multi(cova.max[[i]])
-	d[temp,"WMIN"]<-rnorm.multi(cova.min[[i]])
-	print(d[temp,"WMAX"])
+	d[temp,"WMAX"]<-rnorm.max[i,]
+	d[temp,"WMIN"]<-rnorm.min[i,]
 	d[temp,"todayMAX"]<-diag(coef.max%*%rbind(1,d[temp,"preMAX"],d[temp,"preMIN"],d[temp,"season1"],d[temp,"season2"],d[temp,"DATE"])+d[temp,"WMAX"])
 	d[temp,"todayMIN"]<-diag(coef.min%*%rbind(1,d[temp,"preMAX"],d[temp,"preMIN"],d[temp,"season1"],d[temp,"season2"],d[temp,"DATE"])+d[temp,"WMIN"])
 	if(j!=len*30){
