@@ -200,11 +200,11 @@ dim(data.min)<-c(len,length(level[,1]),30)
 for(i in 1:len){
 	temp1<-c()
 	temp2<-c()
-	start<-(len-1)*30
-	end<-len*30-1
+	start<-(i-1)*30+1
+	end<-i*30
 	for(j in 1:length(level[,1])){
-		temp1<-rbind(temp1,fit.max[[j]][[1]]$res[start:end])
-		temp2<-rbind(temp2,fit.min[[j]][[1]]$res[start:end])
+		temp1<-cbind(temp1,fit.max[[j]][[1]]$res[start:end])
+		temp2<-cbind(temp2,fit.min[[j]][[1]]$res[start:end])
 	}
 	data.max[i,,]<-temp1
 	data.min[i,,]<-temp2
@@ -264,7 +264,7 @@ for(i in 1:len){
 }
 
 #simulation with spatial covariance
-for(i in 1:100){
+for(i in 1:360){
 	print(i)
 	temp<-level[,3]+i-1
 	if(i==1){
@@ -279,3 +279,42 @@ for(i in 1:100){
 			d[temp+1,c("preMAX","preMIN")]<-d[temp,c("todayMAX","todayMIN")]
 	}
 }
+
+#find the relationship btw distance and temperature correlations
+corr<-function(x){
+	temp<-matrix(0,length(x[,1]),length(x[,1]))
+	diag(temp)<-sqrt(1/diag(x))
+	return(temp%*%x%*%temp)
+}
+cor.max<-cov.max
+cor.min<-cov.min
+record.max<-matrix(0,ncol=2,nrow=81*len)
+record.min<-matrix(0,ncol=2,nrow=81*len)
+
+for(i in 1:len){
+	start<-(i-1)*81+1
+	end<-i*81
+	temp1<-corr(cor.max[i,,])
+	temp2<-corr(cor.min[i,,])
+	cor.max[i,,]<-temp1
+	cor.min[i,,]<-temp2
+	dim(temp1)<-81
+	dim(temp2)<-81
+	record.max[start:end,2]<-temp1
+	record.min[start:end,2]<-temp2
+}
+
+dist<-function(x,y){
+	return(sqrt(sum((x-y)^2)))
+}
+dist.matrix<-matrix(0,length(level[,1]),length(level[,1]))
+for(i in 1:length(level[,1])){
+	for(j in 1:length(level[,1])){
+		dist.matrix[i,j]<-dist(d[level[i,3],2:3],d[level[j,3],2:3])
+	}
+}
+dim(dist.matrix)<-81
+record.max[,1]<-rep(dist.matrix,len)
+record.min[,1]<-rep(dist.matrix,len)
+plot(record.max)
+plot(record.min)
