@@ -93,9 +93,15 @@ suc<-function(x){
 	i<-1
 	while(i<=k){
 		j<-0
-		while(i<=k){if(x[i]!=-9999)i<-i+1}
+		while(i<=k){
+			if(x[i]!=-9999){i<-i+1}
+			else{break()}
+		}
 		if(i==k){return(result)}
-		while(i<=k){if(x[i]==-9999)i<-i+1;j<-j+1}
+		while(i<=k){
+			if(x[i]==-9999){i<-i+1;j<-j+1}
+			else{break()}
+		}
 		if(j!=0){result<-rbind(result,c(i-j,i+1,j))}
 	}
 	return(result)
@@ -110,19 +116,27 @@ missing.temp<-function(x,what){
 		else{start<-temp[i-1,1]+1}
 		record[start:end]<-(end-start+1):1
 	}
-	temp<-cbind(temp,temp[,3]-round(temp[,3]/365)*365) 
+	temp<-cbind(temp,temp[,3]-round(temp[,3]/365)*365)
+	print(temp)
 	for(i in 1:length(temp[,1])){
+		print(i)
 		a<-which(record[temp[i,4],]>=temp[i,3])
-		if(length(a)==0){print(i)}
-		a<-(sample(a,size=1)-1)*365+temp[i,4]
-		x[temp[i,1]:temp[i,2],what]<-x[a+0:(temp[i,2]-temp[i,1]),what]
+		if(length(a)!=0){
+			a<-(sample(a,size=1)-1)*365+temp[i,4]
+			print(a)
+			x[temp[i,1]:temp[i,2],what]<-x[a+0:(temp[i,2]-temp[i,1]),what]
+			if(temp[i,1]-1!=0 & a+temp[i,2]-temp[i,1]+1!=length(x[,1]) & a!=1){
+				bias<-(x[temp[i,1]-1,what]+x[temp[i,2]+1,what])/2-(x[a-1,what]+x[a+temp[i,2]-temp[i,1]+1,what])/2
+				x[temp[i,1]:temp[i,2],what]<-x[temp[i,1]:temp[i,2],what]-bias
+			}
+		}
 	}
 	return(x)
 }
 
 record<-list()
 
-for(i in 3:length(level)){
+for(i in 1:9){
 	print(i)
 	record[[i]]<-match(d[which(d[,"STATION"]==level[i]),])
 	record[[i]]<-missing.temp(record[[i]],"TMIN")
